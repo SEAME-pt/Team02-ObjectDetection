@@ -1,8 +1,10 @@
 import torch
+import torch.nn as nn 
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from src.train import train_model
 from src.BDD100KDataset import BDD100KSegmentationDataset
+from src.unet import UNet, LightUNet
 import os
 
 def main():
@@ -19,7 +21,7 @@ def main():
 
     model = UNet().to(device)
     criterion = nn.CrossEntropyLoss()
-    model = UNet().to(device)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     train_dataset = BDD100KSegmentationDataset(
         img_dir='/home/luis_t2/SEAME/bdd100k_seg/bdd100k/seg/images/train',
@@ -32,7 +34,7 @@ def main():
     train_loader = DataLoader(
         train_dataset, 
         batch_size=8, 
-        sampler=sampler,
+        shuffle=True,
         num_workers=os.cpu_count() // 2
     )
 
