@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 from src.train import train_model
 from src.BDD100KDataset import BDD100KSegmentationDataset
-from src.unet import UNet, LightUNet
+from src.unet import UNet, LightUNet, MobileNetV2UNet
 import os
 
 def main():
@@ -19,7 +19,7 @@ def main():
         device = torch.device("cpu")
         print("Using CPU")
 
-    model = UNet().to(device)
+    model = UNet(num_classes=6).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
