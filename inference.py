@@ -21,7 +21,7 @@ else:
 
 # Load the trained model
 model = UNet().to(device)
-model.load_state_dict(torch.load('Models/obj/lane_UNet_1_epoch_2.pth', map_location=device))
+model.load_state_dict(torch.load('Models/obj/lane_UNet_1_epoch_50.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -48,9 +48,12 @@ def preprocess_image(image, target_size=(256, 128)):
 def overlay_predictions(image, prediction):
     # Create a color map for classes
     color_map = {
-        0: [0, 0, 0],       # Background
-        1: [128, 64, 128],  # Road
-        2: [0, 0, 142]      # Car
+        0: [0, 0, 0],         # Background
+        1: [128, 64, 128],    # Road
+        2: [0, 0, 142],       # Car
+        3: [250, 170, 30],    # Traffic Light
+        4: [220, 220, 0],     # Traffic Sign
+        5: [220, 20, 60]      # Person
     }
     
     # Convert prediction logits to class indices (argmax)
