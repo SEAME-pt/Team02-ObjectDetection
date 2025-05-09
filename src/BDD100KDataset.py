@@ -5,7 +5,7 @@ import numpy as np
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-class BDD100KSegmentationDataset(torch.utils.data.Dataset):
+class BDD100KDataset(torch.utils.data.Dataset):
     def __init__(self, img_dir, mask_dir, width=256, height=128, is_train=True):
         self.img_dir = img_dir
         self.mask_dir = mask_dir

@@ -3,7 +3,7 @@ import random
 from torch.utils.data import Dataset
 from src.SEAMEDataset import SEAMEDataset
 from src.CarlaDataset import CarlaDataset
-from src.BDD100kDataset import BDD100KDataset  # Import BDD100K dataset
+from src.BDD100KDataset import BDD100KDataset  # Import BDD100K dataset
 
 class CombinedLaneDataset(Dataset):
     def __init__(self, tusimple_config=None, sea_config=None, carla_config=None, bdd100k_config=None, val_split=0.2, seed=42):
@@ -31,7 +31,7 @@ class CombinedLaneDataset(Dataset):
         if sea_config:
             self.sea_dataset = SEAMEDataset(
                 img_dir=sea_config['img_dir'],
-                mask_dir=sea_config['mask_dir'],
+                annotation_file=sea_config['annotation_file'],
                 width=sea_config.get('width', 512),
                 height=sea_config.get('height', 256),
                 is_train=sea_config.get('is_train', True)
@@ -50,11 +50,10 @@ class CombinedLaneDataset(Dataset):
         if bdd100k_config:
             self.bdd100k_dataset = BDD100KDataset(
                 img_dir=bdd100k_config['img_dir'],
-                labels_file=bdd100k_config['labels_file'],
+                mask_dir=bdd100k_config['mask_dir'],
                 width=bdd100k_config.get('width', 512),
                 height=bdd100k_config.get('height', 256),
-                is_train=bdd100k_config.get('is_train', True),
-                thickness=bdd100k_config.get('thickness', 5)
+                is_train=bdd100k_config.get('is_train', True)
             )
         
         # Initialize sizes and indices
@@ -103,12 +102,12 @@ class CombinedLaneDataset(Dataset):
         self.sea_train_size = len(self.sea_train_indices)
         self.carla_train_size = len(self.carla_train_indices)
         self.bdd100k_train_size = len(self.bdd100k_train_indices)
-        self.train_size = self.tusimple_train_size + self.sea_train_size + self.carla_train_size + self.bdd100k_train_size
+        self.train_size = self.bdd100k_train_size + self.sea_train_size + self.carla_train_size
         
         self.sea_val_size = len(self.sea_val_indices)
         self.carla_val_size = len(self.carla_val_indices)
         self.bdd100k_val_size = len(self.bdd100k_val_indices)
-        self.val_size = self.tusimple_val_size + self.sea_val_size + self.carla_val_size + self.bdd100k_val_size
+        self.val_size = self.bdd100k_val_size + self.sea_val_size + self.carla_val_size
         
         self.total_size = self.train_size + self.val_size
         
@@ -157,44 +156,44 @@ class CombinedLaneDataset(Dataset):
         """Get a sample from either training or validation set"""
         if self.is_validation:
             # Getting validation sample
-            if idx < self.tusimple_val_size:
+            if idx < self.bdd100k_val_size:
                 # Get TuSimple validation sample
-                actual_idx = self.tusimple_val_indices[idx]
-                return self.tusimple_dataset[actual_idx]
-            elif idx < self.tusimple_val_size + self.sea_val_size:
+                actual_idx = self.bdd100k_val_indices[idx]
+                return self.bdd100k_dataset[actual_idx]
+            elif idx < self.bdd100k_val_size + self.sea_val_size:
                 # Get SEA validation sample
-                sea_idx = idx - self.tusimple_val_size
+                sea_idx = idx - self.bdd100k_val_size
                 actual_idx = self.sea_val_indices[sea_idx]
                 return self.sea_dataset[actual_idx]
-            elif idx < self.tusimple_val_size + self.sea_val_size + self.carla_val_size:
+            elif idx < self.bdd100k_val_size + self.sea_val_size + self.carla_val_size:
                 # Get Carla validation sample
-                carla_idx = idx - self.tusimple_val_size - self.sea_val_size
+                carla_idx = idx - self.bdd100k_val_size - self.sea_val_size
                 actual_idx = self.carla_val_indices[carla_idx]
                 return self.carla_dataset[actual_idx]
             else:
                 # Get BDD100K validation sample
-                bdd100k_idx = idx - self.tusimple_val_size - self.sea_val_size - self.carla_val_size
+                bdd100k_idx = idx - self.bdd100k_val_size - self.sea_val_size - self.carla_val_size
                 actual_idx = self.bdd100k_val_indices[bdd100k_idx]
                 return self.bdd100k_dataset[actual_idx]
         else:
             # Getting training sample
-            if idx < self.tusimple_train_size:
+            if idx < self.bdd100k_train_size:
                 # Get TuSimple training sample
-                actual_idx = self.tusimple_train_indices[idx]
-                return self.tusimple_dataset[actual_idx]
-            elif idx < self.tusimple_train_size + self.sea_train_size:
+                actual_idx = self.bdd100k_indices[idx]
+                return self.bdd100k_dataset[actual_idx]
+            elif idx < self.bdd100k_train_size + self.sea_train_size:
                 # Get SEA training sample
-                sea_idx = idx - self.tusimple_train_size
+                sea_idx = idx - self.bdd100k_train_size
                 actual_idx = self.sea_train_indices[sea_idx]
                 return self.sea_dataset[actual_idx]
-            elif idx < self.tusimple_train_size + self.sea_train_size + self.carla_train_size:
+            elif idx < self.bdd100k_train_size + self.sea_train_size + self.carla_train_size:
                 # Get Carla training sample
-                carla_idx = idx - self.tusimple_train_size - self.sea_train_size
+                carla_idx = idx - self.bdd100k_train_size - self.sea_train_size
                 actual_idx = self.carla_train_indices[carla_idx]
                 return self.carla_dataset[actual_idx]
             else:
                 # Get BDD100K training sample
-                bdd100k_idx = idx - self.tusimple_train_size - self.sea_train_size - self.carla_train_size
+                bdd100k_idx = idx - self.bdd100k_train_size - self.sea_train_size - self.carla_train_size
                 actual_idx = self.bdd100k_train_indices[bdd100k_idx]
                 return self.bdd100k_dataset[actual_idx]
 
