@@ -21,7 +21,7 @@ else:
 
 # Load the trained model
 model = UNet(num_classes=6).to(device)
-model.load_state_dict(torch.load('Models/obj/lane_UNet_3_epoch_200.pth', map_location=device))
+model.load_state_dict(torch.load('Models/obj/lane_UNet_4_epoch_200.pth', map_location=device))
 model.eval()
 
 src_pts = np.float32([
@@ -52,7 +52,7 @@ def preprocess_image(image, target_size=(256, 128)):
     
     return img_tensor, img
 
-def overlay_predictions(image, prediction):
+def overlay_predictions(image, prediction, show_debug=True):
     # Create a color map for classes
     color_map = {
         0: [0, 0, 0],         # Background
@@ -72,34 +72,51 @@ def overlay_predictions(image, prediction):
                                 (image.shape[1], image.shape[0]), 
                                 interpolation=cv2.INTER_NEAREST)
     
+    # Save original road mask for comparison
+    original_road_mask = (predicted_class == 1).astype(np.uint8) * 255
+    
     # IMPROVEMENT: Clean up road segmentation with morphological operations
-    road_mask = (predicted_class == 1).astype(np.uint8) * 255
-    
-    # Apply morphological operations to clean up the road mask
-    kernel = np.ones((7, 7), np.uint8)  # Adjust kernel size as needed
-    
-    # Close operation (dilation followed by erosion) fills small holes
+    road_mask = original_road_mask.copy()
+
+    # Define kernel - rectangular shape works well for roads
+    kernel_size = 15  # Increase for more noticeable effect
+    kernel = cv2.getStructuringElement(
+        shape=cv2.MORPH_RECT, 
+        ksize=(kernel_size, kernel_size)
+    )
+
+    # Apply morphological closing to connect nearby road segments
     road_mask = cv2.morphologyEx(road_mask, cv2.MORPH_CLOSE, kernel)
+
+    # Find connected components
+    ccs = cv2.connectedComponentsWithStats(
+        road_mask, connectivity=8, ltype=cv2.CV_32S)
+    labels = ccs[1]
+    stats = ccs[2]
+
+    # Keep only the largest component (main road)
+    # Ignore label 0 which is background
+    if len(stats) > 1:
+        # Find the largest component by area, excluding background (index 0)
+        largest_label = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
+        # Create mask with only the largest road component
+        cleaned_mask = np.zeros_like(road_mask)
+        cleaned_mask[labels == largest_label] = 255
+        road_mask = cleaned_mask
+
+    # Update the predicted class with the cleaned road mask
+    predicted_class_cleaned = predicted_class.copy()
+    predicted_class_cleaned[road_mask == 255] = 1
     
-    # Open operation (erosion followed by dilation) removes small noise
-    road_mask = cv2.morphologyEx(road_mask, cv2.MORPH_OPEN, kernel)
-    
-    # Update the predicted class with cleaned road mask
-    predicted_class[road_mask == 255] = 1
-    
-    # Create a colored overlay
+    # Create colored overlays
     overlay = image.copy()
     
     # Apply colors based on class prediction
     for class_idx, color in color_map.items():
-        overlay[predicted_class == class_idx] = color
+        overlay[predicted_class_cleaned == class_idx] = color
     
     # Create car mask for finding car objects
-    car_mask = (predicted_class == 2).astype(np.uint8) * 255
-    
-    # Clean up car detections too to reduce noise
-    car_mask = cv2.morphologyEx(car_mask, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
-    car_mask = cv2.morphologyEx(car_mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    car_mask = (predicted_class_cleaned == 2).astype(np.uint8) * 255
     
     # Find contours of cars
     contours, _ = cv2.findContours(car_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -126,11 +143,35 @@ def overlay_predictions(image, prediction):
             
             detected_objects['cars'] += 1
     
-    # image, _ = get_bird_eye_view(image, None, src_pts=src_pts, extended_view=True)
-    # _, overlay = get_bird_eye_view(None, overlay, src_pts=src_pts, extended_view=True)
+    # Blend with original image
+    result = cv2.addWeighted(image, 0.6, overlay, 0.4, 0)
     
-    # Blend BEV mask with BEV image for visualization
-    result = cv2.addWeighted(image, 0.6, overlay, 0.8, 0)
+    # Add debug visualization to show the difference
+    if show_debug:
+        # Add text explaining the processing
+        cv2.putText(result, "Road Segmentation: Cleaned with Morphology & Connected Components", 
+                   (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        
+        # Create small thumbnails to show before/after
+        h, w = result.shape[:2]
+        thumbnail_size = (w//4, h//4)
+        
+        # Create before/after thumbnails
+        before_vis = np.zeros((h//4, w//4, 3), dtype=np.uint8)
+        before_vis[original_road_mask[:h:4, :w:4] > 0] = [128, 64, 128]  # Road color
+        
+        after_vis = np.zeros((h//4, w//4, 3), dtype=np.uint8)
+        after_vis[road_mask[:h:4, :w:4] > 0] = [128, 64, 128]  # Road color
+        
+        # Add the thumbnails to the corner
+        result[10:10+h//4, w-10-w//4:w-10] = before_vis
+        result[10+h//4+5:10+h//4+5+h//4, w-10-w//4:w-10] = after_vis
+        
+        # Add labels
+        cv2.putText(result, "Before", (w-10-w//4, 10), 
+                  cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+        cv2.putText(result, "After", (w-10-w//4, 10+h//4+5), 
+                  cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
     
     return result, detected_objects
 
@@ -283,7 +324,7 @@ def get_bird_eye_view(image, mask=None, src_pts=None, dst_pts=None, extended_vie
     return bev_image, bev_mask
 
 # Open video
-cap = cv2.VideoCapture("assets/road3.mp4")
+cap = cv2.VideoCapture("assets/seame_data.mp4")
 
 # src_pts = calibrate_bev_transform(video_path="assets/seame_data.mp4")
 
