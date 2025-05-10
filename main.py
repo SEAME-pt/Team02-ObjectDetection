@@ -94,12 +94,12 @@ def main():
     )
     
     # Initialize model
-    model = UNet(num_classes=6).to(device)
+    model = MobileNetV2UNet(output_channels=6).to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=1.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     
     # Train model
-    train_model(model, train_loader, criterion, optimizer, device, epochs=50)
+    train_model(model, train_loader, criterion, optimizer, device, epochs=200)
 
 if __name__ == '__main__':
     main()
