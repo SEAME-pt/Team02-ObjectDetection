@@ -5,27 +5,29 @@ import torchvision.models as models
 from torchvision.models import MobileNet_V2_Weights
 
 class MobileNetV2UNet(nn.Module):
-    def __init__(self, output_channels=3):
+    def __init__(self, output_channels=1):
         super(MobileNetV2UNet, self).__init__()
         
         # Load pre-trained MobileNetV2 backbone
         self.backbone = models.mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
         
-        # Get feature layers from MobileNetV2
-        self.down1 = self.backbone.features[:2]    # Output: 16 channels
-        self.down2 = self.backbone.features[2:4]   # Output: 24 channels
-        self.down3 = self.backbone.features[4:7]   # Output: 32 channels
-        self.down4 = self.backbone.features[7:14]  # Output: 96 channels
-        self.down5 = self.backbone.features[14:]   # Output: 320 channels
+        # Get feature layers from MobileNetV2 with CORRECT channels
+        self.down1 = self.backbone.features[:2]      # 16 channels
+        self.down2 = self.backbone.features[2:4]     # 24 channels
+        self.down3 = self.backbone.features[4:7]     # 32 channels
+        self.down4 = self.backbone.features[7:11]    # 64 channels (not 96!)
+        self.down5 = self.backbone.features[11:19]   # 1280 channels (not 320!)
         
-        # Upsampling path
-        self.up1 = up(320 + 96, 96)
-        self.up2 = up(96 + 32, 32)
-        self.up3 = up(32 + 24, 24)
-        self.up4 = up(24 + 16, 16)
+        # Upsampling path with CORRECTED channel counts
+        self.up1 = up(1280 + 64, 256)  # Fix channel count
+        self.up2 = up(256 + 32, 128)   # Fix channel count
+        self.up3 = up(128 + 24, 64)    # Fix channel count
+        self.up4 = up(64 + 16, 32)     # Fix channel count
         
         # Output layer
-        self.outc = outconv(16, output_channels)
+        self.outc = outconv(32, output_channels)
+
+        self.final_upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         
     def forward(self, x):
         # Downsampling through backbone
@@ -43,57 +45,10 @@ class MobileNetV2UNet(nn.Module):
         
         # Final output
         x = self.outc(x)
-        return x
 
-class UNet(nn.Module):
-    def __init__(self, base_filters=64, num_classes=3):
-        super(UNet, self).__init__()
-        self.inc = inconv(3, base_filters)
-        self.down1 = down(base_filters, base_filters*2)
-        self.down2 = down(base_filters*2, base_filters*4)
-        self.down3 = down(base_filters*4, base_filters*4)
-
-        self.up1 = up(base_filters*8, base_filters*2)
-        self.up2 = up(base_filters*4, base_filters)
-        self.up3 = up(base_filters*2, base_filters)
-        self.sem_out = outconv(base_filters, num_classes)
-
-    def forward(self, x):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-
-        x = self.up1(x4, x3)
-        x = self.up2(x, x2)
-        x = self.up3(x, x1)
-        sem = self.sem_out(x)
-        return sem
-
-class LightUNet(nn.Module):
-    def __init__(self, base_filters=32, num_classes=3):
-        super(LightUNet, self).__init__()
-        self.inc = inconv(3, base_filters)
-        self.down1 = down(base_filters, base_filters*2)
-        self.down2 = down(base_filters*2, base_filters*4)
-        self.down3 = down(base_filters*4, base_filters*4)
+        x = self.final_upsample(x)
         
-        self.up1 = up(base_filters*8, base_filters*2)
-        self.up2 = up(base_filters*4, base_filters)
-        self.up3 = up(base_filters*2, base_filters)
-        self.sem_out = outconv(base_filters, num_classes)
-
-    def forward(self, x):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-
-        x = self.up1(x4, x3)
-        x = self.up2(x, x2)
-        x = self.up3(x, x1)
-        sem = self.sem_out(x)
-        return sem
+        return x
 
 class double_conv(nn.Module):
     '''(conv => BN => ReLU) * 2'''
@@ -164,3 +119,54 @@ class outconv(nn.Module):
     def forward(self, x):
         x = self.conv(x)
         return x
+
+
+class UNet(nn.Module):
+    def __init__(self, base_filters=64):
+        super(UNet, self).__init__()
+        self.inc = inconv(3, base_filters)
+        self.down1 = down(base_filters, base_filters*2)
+        self.down2 = down(base_filters*2, base_filters*4)
+        self.down3 = down(base_filters*4, base_filters*4)
+
+        self.up1 = up(base_filters*8, base_filters*2)
+        self.up2 = up(base_filters*4, base_filters)
+        self.up3 = up(base_filters*2, base_filters)
+        self.sem_out = outconv(base_filters, 1)
+
+    def forward(self, x):
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        sem = self.sem_out(x)
+        return sem
+
+class LightUNet(nn.Module):
+    def __init__(self, base_filters=32):
+        super(LightUNet, self).__init__()
+        self.inc = inconv(3, base_filters)
+        self.down1 = down(base_filters, base_filters*2)
+        self.down2 = down(base_filters*2, base_filters*4)
+        self.down3 = down(base_filters*4, base_filters*4)
+        
+        self.up1 = up(base_filters*8, base_filters*2)
+        self.up2 = up(base_filters*4, base_filters)
+        self.up3 = up(base_filters*2, base_filters)
+        self.sem_out = outconv(base_filters, 1)
+
+    def forward(self, x):
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        sem = self.sem_out(x)
+        return sem
