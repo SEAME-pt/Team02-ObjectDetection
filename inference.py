@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 import cv2
 from torchvision import transforms
-from src.unet import UNet
+from src.unet import UNet, MobileNetV2UNet
 import time
 
 # Set up device
@@ -20,8 +20,8 @@ else:
     print("Using CPU")
 
 # Load the trained model
-model = UNet(num_classes=6).to(device)
-model.load_state_dict(torch.load('Models/obj/lane_UNet_4_epoch_200.pth', map_location=device))
+model = MobileNetV2UNet(output_channels=6).to(device)
+model.load_state_dict(torch.load('Models/obj/lane_UNet_5_epoch_199.pth', map_location=device))
 model.eval()
 
 src_pts = np.float32([
@@ -128,7 +128,7 @@ def overlay_predictions(image, prediction, show_debug=True):
     for contour in contours:
         area = cv2.contourArea(contour)
         # Filter out small detections (noise)
-        if area > 500:  # Adjust this threshold as needed
+        if area > 300:  # Adjust this threshold as needed
             x, y, w, h = cv2.boundingRect(contour)
             cv2.rectangle(overlay, (x, y), (x+w, y+h), (0, 255, 0), 2)
             
@@ -145,33 +145,6 @@ def overlay_predictions(image, prediction, show_debug=True):
     
     # Blend with original image
     result = cv2.addWeighted(image, 0.6, overlay, 0.4, 0)
-    
-    # Add debug visualization to show the difference
-    if show_debug:
-        # Add text explaining the processing
-        cv2.putText(result, "Road Segmentation: Cleaned with Morphology & Connected Components", 
-                   (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        
-        # Create small thumbnails to show before/after
-        h, w = result.shape[:2]
-        thumbnail_size = (w//4, h//4)
-        
-        # Create before/after thumbnails
-        before_vis = np.zeros((h//4, w//4, 3), dtype=np.uint8)
-        before_vis[original_road_mask[:h:4, :w:4] > 0] = [128, 64, 128]  # Road color
-        
-        after_vis = np.zeros((h//4, w//4, 3), dtype=np.uint8)
-        after_vis[road_mask[:h:4, :w:4] > 0] = [128, 64, 128]  # Road color
-        
-        # Add the thumbnails to the corner
-        result[10:10+h//4, w-10-w//4:w-10] = before_vis
-        result[10+h//4+5:10+h//4+5+h//4, w-10-w//4:w-10] = after_vis
-        
-        # Add labels
-        cv2.putText(result, "Before", (w-10-w//4, 10), 
-                  cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-        cv2.putText(result, "After", (w-10-w//4, 10+h//4+5), 
-                  cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
     
     return result, detected_objects
 
@@ -338,15 +311,15 @@ while True:
     # Preprocess the image
     img_tensor, original_frame = preprocess_image(frame)
     
-    # Run inference
+    # Run inference on both models
     with torch.no_grad():
-        predictions = model(img_tensor)
+        road_predictions = model(img_tensor)
     
-    # Overlay predictions on the original frame
-    result_frame, detected_objects = overlay_predictions(frame, predictions)
+    # Overlay road & object predictions on the original frame
+    result_frame, detected_objects = overlay_predictions(frame, road_predictions)
     
     # Display the result
-    cv2.imshow("Lane Detection", result_frame)
+    cv2.imshow("Road & Lane Detection", result_frame)
     
     # Break the loop if 'q' is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):
