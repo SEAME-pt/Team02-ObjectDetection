@@ -19,13 +19,13 @@ else:
     print("Using CPU")
 
 # Load the trained model
-model = MobileNetV2UNet(output_channels=6).to(device)
-model.load_state_dict(torch.load('Models/obj/obj_UNet_1_epoch_84.pth', map_location=device))
+model = MobileNetV2UNet(output_channels=10).to(device)
+model.load_state_dict(torch.load('Models/obj/obj_UNet_1_epoch_44.pth', map_location=device))
 model.eval()
 
 dummy_input = torch.randn(1, 3, 128, 256).to(device)  
 
-onnx_file_path = "Models/onnx/obj_UNet_1_epoch_84.onnx"
+onnx_file_path = "Models/onnx/obj_UNet_1_epoch_44.onnx"
 torch.onnx.export(
     model,                       # PyTorch model instance
     dummy_input,                 # Input to the model
