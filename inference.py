@@ -21,7 +21,7 @@ else:
 
 # Load the trained model
 model = MobileNetV2UNet(output_channels=6).to(device)
-model.load_state_dict(torch.load('Models/obj/lane_UNet_5_epoch_200.pth', map_location=device))
+model.load_state_dict(torch.load('Models/obj/obj_UNet_1_epoch_70.pth', map_location=device))
 model.eval()
 
 src_pts = np.float32([
@@ -148,156 +148,8 @@ def overlay_predictions(image, prediction, show_debug=True):
     
     return result, detected_objects
 
-def calibrate_bev_transform(image_path=None, video_path=None):
-    """
-    Interactive tool to calibrate BEV with option for extended road visibility
-    """
-    # Load image or first frame as before
-    if image_path:
-        frame = cv2.imread(image_path)
-    elif video_path:
-        cap = cv2.VideoCapture(video_path)
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to read video")
-            return None
-        cap.release()
-    else:
-        print("Must provide either image_path or video_path")
-        return None
-    
-    h, w = frame.shape[:2]
-    
-    src_pts = np.float32([
-        [w * 0.43, h * 0.65],  # Top left
-        [w * 0.57, h * 0.65],  # Top right
-        [w * 0.05, h * 0.95],  # Bottom left
-        [w * 0.95, h * 0.95]   # Bottom right
-    ])
-    
-    # Destination points for non-linear mapping
-    bev_width, bev_height = w, h
-    margin = int(bev_width * 0.1)
-    
-    dst_pts = np.float32([
-        [bev_width * 0.25, 0],           # Top left
-        [bev_width * 0.75, 0],           # Top right
-        [margin, bev_height],            # Bottom left
-        [bev_width - margin, bev_height] # Bottom right
-    ])
-
-    # Point being currently dragged (None if no point is being dragged)
-    dragging_point = None
-    
-    def mouse_callback(event, x, y, flags, param):
-        nonlocal dragging_point, src_pts
-        
-        if event == cv2.EVENT_LBUTTONDOWN:
-            # Check if click is near any source point
-            for i, (px, py) in enumerate(src_pts):
-                if abs(x - px) < 10 and abs(y - py) < 10:
-                    dragging_point = i
-                    break
-        
-        elif event == cv2.EVENT_MOUSEMOVE:
-            # Update point position if dragging
-            if dragging_point is not None:
-                src_pts[dragging_point] = [x, y]
-        
-        elif event == cv2.EVENT_LBUTTONUP:
-            # Stop dragging
-            dragging_point = None
-    
-    # Create window and set mouse callback
-    window_name = "BEV Calibration"
-    cv2.namedWindow(window_name)
-    cv2.setMouseCallback(window_name, mouse_callback)
-    
-    while True:
-        # Create a copy of the frame to draw on
-        display = frame.copy()
-        
-        # Draw the source points
-        for i, (x, y) in enumerate(src_pts):
-            cv2.circle(display, (int(x), int(y)), 5, (0, 0, 255), -1)
-            cv2.putText(display, f"{i}", (int(x)+10, int(y)+10), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        
-        # Draw lines connecting the source points
-        cv2.line(display, (int(src_pts[0][0]), int(src_pts[0][1])), 
-                (int(src_pts[1][0]), int(src_pts[1][1])), (0, 255, 0), 2)
-        cv2.line(display, (int(src_pts[1][0]), int(src_pts[1][1])), 
-                (int(src_pts[3][0]), int(src_pts[3][1])), (0, 255, 0), 2)
-        cv2.line(display, (int(src_pts[3][0]), int(src_pts[3][1])), 
-                (int(src_pts[2][0]), int(src_pts[2][1])), (0, 255, 0), 2)
-        cv2.line(display, (int(src_pts[2][0]), int(src_pts[2][1])), 
-                (int(src_pts[0][0]), int(src_pts[0][1])), (0, 255, 0), 2)
-        
-        # Apply the BEV transform and show the result
-        M = cv2.getPerspectiveTransform(src_pts, dst_pts)
-        bev_image = cv2.warpPerspective(frame, M, (w, h))
-        
-        # Show both images side by side
-        cv2.imshow(window_name, np.hstack([display, bev_image]))
-        
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-        elif key == ord('s'):
-            # Save the source points
-            print("Source points:")
-            print("src_pts = np.float32([")
-            for x, y in src_pts:
-                print(f"    [{x}, {y}],")
-            print("])")
-            break
-    
-    cv2.destroyAllWindows()
-    return src_pts
-
-def get_bird_eye_view(image, mask=None, src_pts=None, dst_pts=None, extended_view=True):
-    """
-    Transform image and/or mask to bird's eye view with extended road visibility
-    """
-    h, w = image.shape[:2] if image is not None else mask.shape[:2]
-    
-    # Default source points if not provided
-    if src_pts is None:
-        src_pts = np.float32([
-            [w * 0.40, h * 0.45],  # Top left (higher up)
-            [w * 0.60, h * 0.45],  # Top right (higher up)
-            [w * 0.05, h * 0.95],  # Bottom left
-            [w * 0.95, h * 0.95]   # Bottom right
-        ])
-    
-    # Create non-linear transformation for better distance perception
-    if dst_pts is None:
-        bev_width, bev_height = w, h
-        margin = int(bev_width * 0.1)
-        
-        dst_pts = np.float32([
-            [bev_width * 0.25, 0],                # Top left (closer to center)
-            [bev_width * 0.75, 0],                # Top right (closer to center) 
-            [margin, bev_height],                 # Bottom left
-            [bev_width - margin, bev_height]      # Bottom right
-        ])
-
-    # Compute the perspective transform matrix
-    M = cv2.getPerspectiveTransform(src_pts, dst_pts)
-    
-    # Apply the transform
-    bev_image = None
-    if image is not None:
-        bev_image = cv2.warpPerspective(image, M, (w, h), flags=cv2.INTER_LINEAR)
-    
-    bev_mask = None
-    if mask is not None:
-        bev_mask = cv2.warpPerspective(mask, M, (w, h), flags=cv2.INTER_NEAREST)
-    
-    return bev_image, bev_mask
-
 # Open video
-cap = cv2.VideoCapture("assets/road4.mp4")
+cap = cv2.VideoCapture("assets/seame_data.mp4")
 
 # src_pts = calibrate_bev_transform(video_path="assets/seame_data.mp4")
 
