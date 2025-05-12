@@ -32,8 +32,8 @@ def main():
     }
 
     carla_config = {
-        'img_dir': '/home/luis_t2/SEAME/Team02-Course/Dataset/Carla/frames',
-        'mask_dir': '/home/luis_t2/SEAME/Team02-Course/Dataset/Carla/masks',
+        'img_dir': '/home/luis_t2/CarlaSimulation/dataset/images',
+        'mask_dir': '/home/luis_t2/CarlaSimulation/dataset/masks',
         'width': input_size[0],
         'height': input_size[1],
         'is_train': True
@@ -51,6 +51,7 @@ def main():
     combined_dataset = CombinedLaneDataset(
         bdd100k_config=bdd100k_config, 
         sea_config=sea_config, 
+        carla_config=carla_config, 
         val_split=0.0
     )
     
@@ -65,9 +66,9 @@ def main():
 
     # Calculate weights for equal contribution (adjust percentages as needed)
     total_samples = train_bdd100k_size + train_sea_size
-    bdd100k_weight = 0.6 / (train_bdd100k_size / total_samples) if train_bdd100k_size > 0 else 0
-    sea_weight = 0.4 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
-    # carla_weight = 0.25 / (train_carla_size / total_samples) if train_carla_size > 0 else 0
+    bdd100k_weight = 0.4 / (train_bdd100k_size / total_samples) if train_bdd100k_size > 0 else 0
+    sea_weight = 0.2 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
+    carla_weight = 0.4 / (train_carla_size / total_samples) if train_carla_size > 0 else 0
 
     # Apply weights to all samples
     for i in range(train_dataset.train_size):
