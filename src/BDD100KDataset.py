@@ -21,11 +21,15 @@ class BDD100KDataset(torch.utils.data.Dataset):
         
         # Class mapping for BDD100K
         self.class_map = {
-            0: 1,       # road (maps to your class 1)
-            6: 3,       # traffic light (maps to your class 3)
-            7: 4,       # traffic sign (maps to your class 4)
-            11: 5,      # person (maps to your class 5)
-            13: 2,      # car (maps to your class 2)
+            0: 1,       # road
+            13: 2,      # car
+            6: 3,       # traffic light
+            7: 4,       # traffic sign
+            11: 5,      # person
+            1: 6,       # sidewalk
+            14: 7,      # truck
+            15: 8,      # bus
+            17: 9,      # motorcycle
         }
         
         # Augmentation for training
