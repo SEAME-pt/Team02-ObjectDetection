@@ -21,15 +21,8 @@ else:
 
 # Load the trained model
 model = MobileNetV2UNet(output_channels=6).to(device)
-model.load_state_dict(torch.load('Models/obj/obj_UNet_1_epoch_70.pth', map_location=device))
+model.load_state_dict(torch.load('Models/obj/obj_UNet_1_epoch_29.pth', map_location=device))
 model.eval()
-
-src_pts = np.float32([
-    [248.0, 81.0],
-    [394.0, 81.0],
-    [32.0, 456.0],
-    [608.0, 456.0],
-])
 
 # Image preprocessing function
 def preprocess_image(image, target_size=(256, 128)):
@@ -60,7 +53,11 @@ def overlay_predictions(image, prediction, show_debug=True):
         2: [0, 0, 142],       # Car
         3: [250, 170, 30],    # Traffic Light
         4: [220, 220, 0],     # Traffic Sign
-        5: [220, 20, 60]      # Person
+        5: [220, 20, 60],     # Person
+        6: [244, 35, 232],    # Sidewalks
+        7: [0, 0, 70],        # Truck
+        8: [0, 60, 100],      # Bus
+        9: [0, 0, 230],       # Motorcycle
     }
     
     # Convert prediction logits to class indices
