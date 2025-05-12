@@ -95,7 +95,7 @@ def main():
     )
     
     # Initialize model
-    model = MobileNetV2UNet(output_channels=6).to(device)
+    model = MobileNetV2UNet(output_channels=10).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     

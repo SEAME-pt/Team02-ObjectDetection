@@ -19,15 +19,16 @@ class CarlaDataset(torch.utils.data.Dataset):
         self.masks = sorted([os.path.join(mask_dir, f) for f in os.listdir(mask_dir) 
                             if f.endswith('.png') and not f.endswith('_viz.png')])
         
-        # The class mapping should match what was used during generation
-        # This is already applied during generation, but we keep it for reference
         self.class_map = {
-            0: 0,       # background
-            1: 1,       # road
-            2: 2,       # car
-            3: 3,       # traffic light
-            4: 4,       # traffic sign
-            5: 5,       # person
+            1: 1,
+            14: 2,
+            7: 3,
+            8: 4,
+            12: 5,
+            2: 6,
+            15: 7,
+            16: 8,
+            18: 9,
         }
         
         # Augmentation for training - same as BDD100K for consistency
