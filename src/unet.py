@@ -122,7 +122,7 @@ class outconv(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, base_filters=64):
+    def __init__(self, output_channels=1, base_filters=64):
         super(UNet, self).__init__()
         self.inc = inconv(3, base_filters)
         self.down1 = down(base_filters, base_filters*2)
@@ -132,7 +132,7 @@ class UNet(nn.Module):
         self.up1 = up(base_filters*8, base_filters*2)
         self.up2 = up(base_filters*4, base_filters)
         self.up3 = up(base_filters*2, base_filters)
-        self.sem_out = outconv(base_filters, 1)
+        self.sem_out = outconv(base_filters, output_channels)
 
     def forward(self, x):
         x1 = self.inc(x)

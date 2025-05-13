@@ -3,7 +3,7 @@ import random
 from torch.utils.data import Dataset
 from src.SEAMEDataset import SEAMEDataset
 from src.CarlaDataset import CarlaDataset
-from src.BDD100KDataset import BDD100KDataset  # Import BDD100K dataset
+from src.BDD100KDataset import BDD100KDataset
 
 class CombinedLaneDataset(Dataset):
     def __init__(self, tusimple_config=None, sea_config=None, carla_config=None, bdd100k_config=None, val_split=0.2, seed=42):
