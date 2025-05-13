@@ -21,6 +21,7 @@ class CarlaDataset(torch.utils.data.Dataset):
         
         self.class_map = {
             1: 1,
+            24: 1,
             14: 2,
             7: 3,
             8: 4,
@@ -29,6 +30,9 @@ class CarlaDataset(torch.utils.data.Dataset):
             15: 7,
             16: 8,
             18: 9,
+            19: 9,
+            13: 9,
+
         }
         
         # Augmentation for training - same as BDD100K for consistency
@@ -59,9 +63,15 @@ class CarlaDataset(torch.utils.data.Dataset):
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+
+        mapped_mask = np.zeros_like(mask)
+    
+        # Now map each Carla class to your model classes
+        for carla_class, model_class in self.class_map.items():
+            mapped_mask[mask == carla_class] = model_class
         
         # Apply transforms
-        transformed = self.transform(image=image, mask=mask)
+        transformed = self.transform(image=image, mask=mapped_mask)
         image = transformed['image']
         mask = transformed['mask'].long()
         

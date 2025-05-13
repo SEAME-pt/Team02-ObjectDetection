@@ -146,7 +146,7 @@ def overlay_predictions(image, prediction, show_debug=True):
     return result, detected_objects
 
 # Open video
-cap = cv2.VideoCapture("assets/road3.mp4")
+cap = cv2.VideoCapture("assets/seame_data.mp4")
 
 while True:
     ret, frame = cap.read()

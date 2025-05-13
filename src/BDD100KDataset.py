@@ -30,6 +30,8 @@ class BDD100KDataset(torch.utils.data.Dataset):
             14: 7,      # truck
             15: 8,      # bus
             17: 9,      # motorcycle
+            18: 9,      # Bicycle
+            12: 9,      # Rider
         }
         
         # Augmentation for training

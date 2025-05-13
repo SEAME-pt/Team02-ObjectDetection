@@ -32,8 +32,8 @@ def main():
     }
 
     carla_config = {
-        'img_dir': '/home/luis_t2/CarlaSimulation/obj_dataset/images',
-        'mask_dir': '/home/luis_t2/CarlaSimulation/obj_dataset/masks',
+        'img_dir': '/home/luis_t2/SEAME/Team02-Course/Dataset/Carla/obj_dataset/images',
+        'mask_dir': '/home/luis_t2/SEAME/Team02-Course/Dataset/Carla/obj_dataset/masks',
         'width': input_size[0],
         'height': input_size[1],
         'is_train': True
@@ -66,9 +66,9 @@ def main():
 
     # Calculate weights for equal contribution (adjust percentages as needed)
     total_samples = train_bdd100k_size + train_sea_size
-    bdd100k_weight = 0.4 / (train_bdd100k_size / total_samples) if train_bdd100k_size > 0 else 0
+    bdd100k_weight = 0.5 / (train_bdd100k_size / total_samples) if train_bdd100k_size > 0 else 0
     sea_weight = 0.2 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
-    carla_weight = 0.4 / (train_carla_size / total_samples) if train_carla_size > 0 else 0
+    carla_weight = 0.3 / (train_carla_size / total_samples) if train_carla_size > 0 else 0
 
     # Apply weights to all samples
     for i in range(train_dataset.train_size):
@@ -84,7 +84,7 @@ def main():
         replacement=True
     )
 
-    print(f"Created weighted sampler: train_bdd100k_size={bdd100k_weight:.4f}, SEA={sea_weight:.4f}")
+    print(f"Created weighted sampler: bdd100k={bdd100k_weight:.4f}, SEA={sea_weight:.4f}, Carla={carla_weight:.4}")
 
     # Create dataloaders
     train_loader = DataLoader(
