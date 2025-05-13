@@ -20,8 +20,8 @@ else:
     print("Using CPU")
 
 # Load the trained model
-model = MobileNetV2UNet(output_channels=6).to(device)
-model.load_state_dict(torch.load('Models/obj/obj_UNet_1_epoch_29.pth', map_location=device))
+model = MobileNetV2UNet(output_channels=10).to(device)
+model.load_state_dict(torch.load('Models/obj/obj_UNet_2_epoch_185.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -146,9 +146,7 @@ def overlay_predictions(image, prediction, show_debug=True):
     return result, detected_objects
 
 # Open video
-cap = cv2.VideoCapture("assets/seame_data.mp4")
-
-# src_pts = calibrate_bev_transform(video_path="assets/seame_data.mp4")
+cap = cv2.VideoCapture("assets/road3.mp4")
 
 while True:
     ret, frame = cap.read()

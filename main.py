@@ -32,8 +32,8 @@ def main():
     }
 
     carla_config = {
-        'img_dir': '/home/luis_t2/CarlaSimulation/dataset/images',
-        'mask_dir': '/home/luis_t2/CarlaSimulation/dataset/masks',
+        'img_dir': '/home/luis_t2/CarlaSimulation/obj_dataset/images',
+        'mask_dir': '/home/luis_t2/CarlaSimulation/obj_dataset/masks',
         'width': input_size[0],
         'height': input_size[1],
         'is_train': True
@@ -97,7 +97,7 @@ def main():
     # Initialize model
     model = MobileNetV2UNet(output_channels=10).to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
     
     # Train model
     train_model(model, train_loader, criterion, optimizer, device, epochs=200)
