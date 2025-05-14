@@ -1,114 +1,120 @@
 import os
-import json
 import cv2
-import numpy as np
 import torch
-import torchvision.transforms as transforms
-from src.augmentation import LaneDetectionAugmentation
-from torch.utils.data import Dataset
+import numpy as np
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
-def get_binary_labels(height, width, pts, thickness=5):
-    bin_img = np.zeros(shape=[height, width], dtype=np.uint8)
-    for lane in pts:
-        cv2.polylines(
-            bin_img,
-            np.int32([lane]),
-            isClosed=False,
-            color=1,
-            thickness=thickness)
-
-    return bin_img.astype(np.float32)[None, ...]
-
-def get_image_transform():
-    normalizer = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                      std=[0.229, 0.224, 0.225])
-
-    t = [transforms.ToTensor(),
-         normalizer]
-
-    transform = transforms.Compose(t)
-    return transform
-
-class CarlaDataset(Dataset):
-    def __init__(self, json_paths, img_dir, width=512, height=256, is_train=True, thickness=5):
-        """
-        Carla Dataset for lane detection
-        
-        Args:
-            json_paths: List of json files containing lane annotations
-            img_dir: Directory containing the images
-            width: Target image width
-            height: Target image height
-            is_train: Whether this is for training (enables augmentations)
-            thickness: Thickness of lane lines in the binary mask
-        """
+class CarlaDataset(torch.utils.data.Dataset):
+    def __init__(self, img_dir, mask_dir, width=256, height=128, is_train=True):
+        self.img_dir = img_dir
+        self.mask_dir = mask_dir
         self.width = width
         self.height = height
-        self.thickness = thickness
-        self.img_dir = img_dir
-        self.transform = get_image_transform()
         self.is_train = is_train
-
-        # Initialize augmentation
-        self.augmentation = LaneDetectionAugmentation(
-            height=height, 
-            width=width,
-        )
         
-        # Load all samples from all json files
-        self.samples = []
-        for json_path in json_paths:
-            with open(json_path, 'r') as f:
-                for line in f:
-                    sample = json.loads(line)
-                    self.samples.append(sample)
+        # Find all images in directory - using your CARLA frame-based naming pattern
+        self.images = sorted([os.path.join(img_dir, f) for f in os.listdir(img_dir) 
+                             if f.endswith('.png')])
+        self.masks = sorted([os.path.join(mask_dir, f) for f in os.listdir(mask_dir) 
+                            if f.endswith('.png') and not f.endswith('_viz.png')])
         
-        print(f"Loaded {len(self.samples)} Carla samples with augmentation {'enabled' if is_train else 'disabled'}")
+        self.class_map = {
+            1: 1,
+            24: 1,
+            14: 2,
+            7: 3,
+            8: 4,
+            12: 5,
+            2: 6,
+            15: 7,
+            16: 8,
+            18: 9,
+            19: 9,
+            13: 9,
 
-
-    def __len__(self):
-        return len(self.samples)
-
-    def __getitem__(self, idx):
-        info = self.samples[idx]
-        file_path = os.path.join(self.img_dir, info['raw_file'])
+        }
         
-        # Read and resize image
-        image = cv2.imread(file_path)
-        if image is None:
-            raise ValueError(f"Could not read image: {file_path}")
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            
-        width_org = image.shape[1]
-        height_org = image.shape[0]
-        image = cv2.resize(image, (self.width, self.height))
-
-        # Process lane points
-        x_lanes = info['lanes']
-        y_samples = info['h_samples']
-        
-        # Create points list with list comprehension
-        pts = [
-            [(x, y) for (x, y) in zip(lane, y_samples) if x >= 0]
-            for lane in x_lanes
-        ]
-
-        # Remove empty lanes
-        pts = [l for l in pts if len(l) > 0]
-
-        # Calculate scaling rates
-        x_rate = 1.0 * self.width / width_org
-        y_rate = 1.0 * self.height / height_org
-
-        # Scale points
-        pts = [[(int(round(x*x_rate)), int(round(y*y_rate)))
-                for (x, y) in lane] for lane in pts]
-
-        bin_labels = get_binary_labels(self.height, self.width, pts,
-                                    thickness=self.thickness)
-
-        if self.is_train:
-            return self.augmentation(image, bin_labels)
+        # Augmentation for training - same as BDD100K for consistency
+        if is_train:
+            self.transform = A.Compose([
+                A.Resize(height=height, width=width),
+                A.HorizontalFlip(p=0.5),
+                A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, rotate_limit=10, p=0.5),
+                A.RandomBrightnessContrast(p=0.5),
+                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                ToTensorV2()
+            ])
         else:
-            image = self.transform(image)
-            return image, bin_labels
+            self.transform = A.Compose([
+                A.Resize(height=height, width=width),
+                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                ToTensorV2()
+            ])
+            
+    def __len__(self):
+        return len(self.images)
+        
+    def __getitem__(self, idx):
+        img_path = self.images[idx]
+        mask_path = self.masks[idx]
+        
+        # Load image and mask
+        image = cv2.imread(img_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+
+        mapped_mask = np.zeros_like(mask)
+    
+        # Now map each Carla class to your model classes
+        for carla_class, model_class in self.class_map.items():
+            mapped_mask[mask == carla_class] = model_class
+        
+        # Apply transforms
+        transformed = self.transform(image=image, mask=mapped_mask)
+        image = transformed['image']
+        mask = transformed['mask'].long()
+        
+        return image, mask
+        
+    def visualize_sample(self, idx):
+        """Visualize a sample for debugging"""
+        image, mask = self[idx]
+        
+        # Convert back to numpy for visualization
+        image = image.permute(1, 2, 0).numpy()
+        image = (image * np.array([0.229, 0.224, 0.225]) + np.array([0.485, 0.456, 0.406])) * 255
+        image = image.astype(np.uint8)
+        
+        mask = mask.numpy()
+        
+        # Create a colored mask
+        colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+        colors = {
+            0: [0, 0, 0],       # Background: black
+            1: [0, 255, 0],   # Road: purple-ish
+            2: [0, 0, 255],      # Car: dark blue
+            3: [0, 255, 255],   # Traffic light: orange
+            4: [255, 255, 0],    # Traffic sign: yellow
+            5: [255, 0, 0]     # Person: red
+        }
+        
+        for class_id, color in colors.items():
+            colored_mask[mask == class_id] = color
+            
+        # Blend image and mask for visualization
+        alpha = 0.4
+        blended = cv2.addWeighted(image, 1-alpha, colored_mask, alpha, 0)
+        
+        return image, colored_mask, blended
+
+if __name__ == "__main__":
+    carla_img_dir = '/home/luis_t2/CarlaSimulation/dataset/images'
+    carla_mask_dir = '/home/luis_t2/CarlaSimulation/dataset/masks'
+
+    dataset = CarlaDataset(carla_img_dir, carla_mask_dir, is_train=True)
+
+    # Visualize a sample for debugging
+    image, mask, blended = dataset.visualize_sample(30)
+    cv2.imshow('Blended Image', cv2.cvtColor(blended, cv2.COLOR_RGB2BGR))
+    cv2.waitKey(0)

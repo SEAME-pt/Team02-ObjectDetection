@@ -1,9 +1,12 @@
 import torch
+from torch.utils.data import DataLoader
+import torch.nn as nn
+import torch.optim as optim
 import numpy as np
 import cv2
 from torchvision import transforms
+from src.unet import UNet, MobileNetV2UNet
 import time
-from src.ObjectDetection import SimpleYOLO
 
 # Set up device
 if torch.cuda.is_available():
@@ -16,31 +19,17 @@ else:
     device = torch.device("cpu")
     print("Using CPU")
 
-CLASS_NAMES = [
-    'Person', 'Bicycle', 'Car', 'Motorcycle', 'Bus', 'Truck',  
-    'Traffic Light', 'Stop Sign', 'Cat', 'Dog', 'Skateboard'
-]
+# Load the trained model
+model = MobileNetV2UNet(output_channels=10).to(device)
+model.load_state_dict(torch.load('Models/obj/obj_UNet_3_epoch_185.pth', map_location=device))
+model.eval()
 
-# Also update COLORS to have enough colors for all classes
-COLORS = [
-    (0, 0, 255),    # Red
-    (0, 255, 255),  # Yellow
-    (0, 165, 255),  # Orange
-    (0, 255, 0),    # Green
-    (255, 0, 0),    # Blue
-    (255, 0, 255),  # Purple
-    (255, 255, 0),  # Cyan
-    (128, 0, 255),  # Magenta
-    (0, 128, 255),  # Amber
-    (255, 0, 128),  # Pink
-    (128, 128, 0),  # Olive
-]
-
+# Image preprocessing function
 def preprocess_image(image, target_size=(256, 128)):
     # Resize image
     img = cv2.resize(image, target_size)
     
-    # Convert to RGB
+    # 2. Enhance contrast within the ROI
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     
     # Apply same transforms as during training
@@ -56,177 +45,132 @@ def preprocess_image(image, target_size=(256, 128)):
     
     return img_tensor, img
 
-# Function to draw detected objects on the image
-def draw_detections(image, detections, conf_threshold=0.05, model_size=(256, 128)):
-    result_img = image.copy()
-    orig_h, orig_w = image.shape[:2]
-    model_w, model_h = model_size
+def overlay_predictions(image, prediction, show_debug=True):
+    # Create a color map for classes
+    color_map = {
+        0: [0, 0, 0],         # Background
+        1: [128, 64, 128],    # Road
+        2: [0, 0, 142],       # Car
+        3: [250, 170, 30],    # Traffic Light
+        4: [220, 220, 0],     # Traffic Sign
+        5: [220, 20, 60],     # Person
+        6: [244, 35, 232],    # Sidewalks
+        7: [0, 0, 70],        # Truck
+        8: [0, 60, 100],      # Bus
+        9: [0, 0, 230],       # Motorcycle
+    }
     
-    # Calculate scaling factors
-    scale_x = orig_w / model_w
-    scale_y = orig_h / model_h
+    # Convert prediction logits to class indices
+    _, predicted_class = torch.max(prediction, dim=1)
+    predicted_class = predicted_class.squeeze().cpu().numpy()
     
-    for detection in detections:
-        # Skip if no detections
-        if detection.size(0) == 0:
-            continue
-        
-        # Process each detection
-        for i in range(detection.size(0)):
-            x1, y1, x2, y2, obj_conf, cls_conf, cls_idx = detection[i]
-            
-            # Skip low confidence detections
-            score = float(obj_conf * cls_conf)
-            if score < conf_threshold:
-                continue
-            
-            # Scale coordinates to original image dimensions
-            x1 = int(x1.item() * scale_x)
-            y1 = int(y1.item() * scale_y)
-            x2 = int(x2.item() * scale_x)
-            y2 = int(y2.item() * scale_y)
-            
-            # Validate box dimensions
-            if x2 <= x1 or y2 <= y1 or x1 >= orig_w or y1 >= orig_h or x2 <= 0 or y2 <= 0:
-                continue
-            
-            # Get the class index and select color
-            cls_idx = int(cls_idx.item())
-            color = COLORS[cls_idx % len(COLORS)]
-            label = f"{CLASS_NAMES[cls_idx]}: {score:.2f}"
-            
-            # Draw rectangle and label
-            cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
-            
-            # Prepare label text with confidence
-            (text_width, text_height), baseline = cv2.getTextSize(
-                label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            
-            # Draw label background for better visibility
-            cv2.rectangle(result_img, 
-                         (x1, y1 - text_height - baseline - 5), 
-                         (x1 + text_width, y1), 
-                         color, -1)
-                         
-            cv2.putText(result_img, label, (x1, y1 - 5), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    # Resize mask to match original image size
+    predicted_class = cv2.resize(predicted_class.astype(np.uint8), 
+                                (image.shape[1], image.shape[0]), 
+                                interpolation=cv2.INTER_NEAREST)
     
-    return result_img
+    # Save original road mask for comparison
+    original_road_mask = (predicted_class == 1).astype(np.uint8) * 255
+    
+    # IMPROVEMENT: Clean up road segmentation with morphological operations
+    road_mask = original_road_mask.copy()
 
-# Improved function to visualize raw predictions with better filtering
-def visualize_raw_predictions(frame, predictions, threshold=0.3):
-    """
-    Show raw prediction heatmaps with thresholding to reduce noise
+    # Define kernel - rectangular shape works well for roads
+    kernel_size = 15  # Increase for more noticeable effect
+    kernel = cv2.getStructuringElement(
+        shape=cv2.MORPH_RECT, 
+        ksize=(kernel_size, kernel_size)
+    )
+
+    # Apply morphological closing to connect nearby road segments
+    road_mask = cv2.morphologyEx(road_mask, cv2.MORPH_CLOSE, kernel)
+
+    # Find connected components
+    ccs = cv2.connectedComponentsWithStats(
+        road_mask, connectivity=8, ltype=cv2.CV_32S)
+    labels = ccs[1]
+    stats = ccs[2]
+
+    # Keep only the largest component (main road)
+    # Ignore label 0 which is background
+    if len(stats) > 1:
+        # Find the largest component by area, excluding background (index 0)
+        largest_label = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
+        # Create mask with only the largest road component
+        cleaned_mask = np.zeros_like(road_mask)
+        cleaned_mask[labels == largest_label] = 255
+        road_mask = cleaned_mask
+
+    # Update the predicted class with the cleaned road mask
+    predicted_class_cleaned = predicted_class.copy()
+    predicted_class_cleaned[road_mask == 255] = 1
     
-    Args:
-        frame: Original image frame
-        predictions: Raw YOLO predictions
-        threshold: Confidence threshold to filter noise
-    """
-    result = frame.copy()
+    # Create colored overlays
+    overlay = image.copy()
     
-    # Create a combined heatmap across all scales and anchors
-    combined_heatmap = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.float32)
+    # Apply colors based on class prediction
+    for class_idx, color in color_map.items():
+        overlay[predicted_class_cleaned == class_idx] = color
     
-    # Process each scale
-    for scale_idx, scale_pred in enumerate(predictions):
-        pred = scale_pred[0]  # First batch
-        
-        # Process each anchor
-        for anchor_idx in range(pred.size(0)):
-            # Get objectness confidence
-            obj_conf = pred[anchor_idx, :, :, 4].cpu().numpy()
+    # Create car mask for finding car objects
+    car_mask = (predicted_class_cleaned == 2).astype(np.uint8) * 255
+    
+    # Find contours of cars
+    contours, _ = cv2.findContours(car_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Dictionary to store detected objects
+    detected_objects = {'cars': 0}
+    
+    # Draw bounding boxes around cars
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        # Filter out small detections (noise)
+        if area > 300:  # Adjust this threshold as needed
+            x, y, w, h = cv2.boundingRect(contour)
+            cv2.rectangle(overlay, (x, y), (x+w, y+h), (0, 255, 0), 2)
             
-            # Resize to frame dimensions
-            resized_conf = cv2.resize(obj_conf, (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_LINEAR)
+            # Calculate approximate distance (using bottom of bounding box)
+            y_bottom = y + h
+            distance_factor = 1.0 - (y_bottom / image.shape[0])
+            estimated_distance = int(50 * distance_factor)  # Simple approximation
             
-            # Add to combined heatmap with threshold to reduce noise
-            combined_heatmap = np.maximum(combined_heatmap, resized_conf * (resized_conf > threshold))
-    
-    # Normalize the heatmap for visualization
-    if np.max(combined_heatmap) > 0:
-        combined_heatmap = (combined_heatmap / np.max(combined_heatmap) * 255).astype(np.uint8)
-    else:
-        combined_heatmap = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
-    
-    # Apply a colormap
-    heatmap = cv2.applyColorMap(combined_heatmap, cv2.COLORMAP_JET)
+            # Label with estimated distance
+            cv2.putText(overlay, f"{estimated_distance}m", (x, y-5),
+                      cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            
+            detected_objects['cars'] += 1
     
     # Blend with original image
-    result = cv2.addWeighted(result, 0.7, heatmap, 0.3, 0)
+    result = cv2.addWeighted(image, 0.6, overlay, 0.4, 0)
     
-    # Add helper text
-    cv2.putText(result, f"Confidence threshold: {threshold:.2f}", (10, 30), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    return result, detected_objects
+
+# Open video
+cap = cv2.VideoCapture("assets/road4.mp4")
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    time.sleep(0.05)  # Optional: Add a small delay to control frame rate
     
-    return result
-
-def main():
-    num_classes = len(CLASS_NAMES) 
-    input_size = (384, 192)
-
-    yolo_model = SimpleYOLO(
-        num_classes=num_classes, 
-        input_size=input_size,
-        use_default_anchors=False
-    ).to(device)
-
-    yolo_model.load_state_dict(torch.load("Models/Obj/yolo4_model_epoch_1.pth", map_location=device))
-    yolo_model.eval()
+    # Preprocess the image
+    img_tensor, original_frame = preprocess_image(frame)
     
-    # Choose video source
-    video_path = "assets/road2.mp4"
-    cap = cv2.VideoCapture(video_path)
-
+    # Run inference on both models
+    with torch.no_grad():
+        road_predictions = model(img_tensor)
     
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        # Optional: Add a small delay for display
-        time.sleep(0.05)
-        
-        # Preprocess the image for both models
-        img_tensor, _ = preprocess_image(frame, target_size=input_size)
-        
-        # Run inference with both models
-        with torch.no_grad():
-            
-            # Object detection
-            yolo_predictions = yolo_model(img_tensor)
-            
-            # Post-process object detections
-            detections = yolo_model.predict_boxes(
-                yolo_predictions, 
-                input_dim=input_size[1],  # Height 
-                conf_thresh=0.5
-            )
-            
-            # Apply non-maximum suppression to remove overlapping boxes
-            processed_detections = []
-            for batch_boxes in detections:
-                processed_detections.append(
-                    yolo_model.non_max_suppression(batch_boxes, nms_thresh=0.005)
-                )
-        
-        # Then draw object detections
-        result_frame = draw_detections(frame, processed_detections, 
-                              conf_threshold=0.5, 
-                              model_size=input_size)
-        # result_frame = visualize_raw_predictions(frame, yolo_predictions)
-        
-        # Display the result
-        cv2.imshow("Detection Results", result_frame)
-        
-        # Break the loop if 'q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    # Overlay road & object predictions on the original frame
+    result_frame, detected_objects = overlay_predictions(frame, road_predictions)
     
-    # Release resources
-    cap.release()
-    # out.release()
-    cv2.destroyAllWindows()
+    # Display the result
+    cv2.imshow("Road & Lane Detection", result_frame)
+    
+    # Break the loop if 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
-if __name__ == "__main__":
-    main()
+cap.release()
+cv2.destroyAllWindows()
