@@ -23,7 +23,7 @@ model = MobileNetV2UNet(output_channels=10).to(device)
 model.load_state_dict(torch.load('Models/obj/obj_UNet_3_epoch_185.pth', map_location=device))
 model.eval()
 
-dummy_input = torch.randn(1, 3, 128, 256).to(device)  
+dummy_input = torch.randn(10, 3, 128, 256).to(device)  
 
 onnx_file_path = "Models/onnx/obj_UNet_3_epoch_185.onnx"
 torch.onnx.export(
