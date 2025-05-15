@@ -21,7 +21,7 @@ else:
 
 # Load the trained model
 model = MobileNetV2UNet(output_channels=10).to(device)
-model.load_state_dict(torch.load('Models/obj/obj_UNet_3_epoch_185.pth', map_location=device))
+model.load_state_dict(torch.load('Models/obj/obj_MOB_1_epoch_153.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -49,8 +49,8 @@ def overlay_predictions(image, prediction, show_debug=True):
     # Create a color map for classes
     color_map = {
         0: [0, 0, 0],         # Background
-        1: [128, 64, 128],    # Road
-        2: [0, 0, 142],       # Car
+        1: [0, 255, 0],    # Road
+        2: [255, 0, 0],       # Car
         3: [250, 170, 30],    # Traffic Light
         4: [220, 220, 0],     # Traffic Sign
         5: [220, 20, 60],     # Person
@@ -146,14 +146,14 @@ def overlay_predictions(image, prediction, show_debug=True):
     return result, detected_objects
 
 # Open video
-cap = cv2.VideoCapture("assets/road4.mp4")
+cap = cv2.VideoCapture("assets/seame_data_new.mp4")
 
 while True:
     ret, frame = cap.read()
     if not ret:
         break
 
-    time.sleep(0.05)  # Optional: Add a small delay to control frame rate
+    # time.sleep(0.05)  # Optional: Add a small delay to control frame rate
     
     # Preprocess the image
     img_tensor, original_frame = preprocess_image(frame)
