@@ -21,7 +21,7 @@ else:
 
 # Load the trained model
 model = MobileNetV2UNet(output_channels=10).to(device)
-model.load_state_dict(torch.load('Models/obj/obj_MOB_1_epoch_153.pth', map_location=device))
+model.load_state_dict(torch.load('Models/obj/obj_MOB_1_epoch_172.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -76,7 +76,7 @@ def overlay_predictions(image, prediction, show_debug=True):
     road_mask = original_road_mask.copy()
 
     # Define kernel - rectangular shape works well for roads
-    kernel_size = 15  # Increase for more noticeable effect
+    kernel_size = 5  # Increase for more noticeable effect
     kernel = cv2.getStructuringElement(
         shape=cv2.MORPH_RECT, 
         ksize=(kernel_size, kernel_size)
