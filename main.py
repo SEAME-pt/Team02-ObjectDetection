@@ -5,6 +5,7 @@ import torch.optim as optim
 from src.CombinedDataset import CombinedLaneDataset
 from src.train import train_model
 from src.unet import UNet, MobileNetV2UNet
+from src.Object import YOLOPSeg
 import os
 import numpy as np
 
@@ -95,7 +96,8 @@ def main():
     )
     
     # Initialize model
-    model = MobileNetV2UNet(output_channels=10).to(device)
+    # model = MobileNetV2UNet(output_channels=10).to(device)
+    model = YOLOPSeg(num_classes=10).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
     
