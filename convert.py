@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 from torchvision import transforms
 from src.unet import UNet, MobileNetV2UNet
+from src.Object import YOLOPSeg
 
 # Set up device
 if torch.cuda.is_available():
@@ -19,13 +20,13 @@ else:
     print("Using CPU")
 
 # Load the trained model
-model = MobileNetV2UNet(output_channels=10).to(device)
-model.load_state_dict(torch.load('Models/obj/obj_MOB_1_epoch_198.pth', map_location=device))
+model = YOLOPSeg(num_classes=10).to(device)
+model.load_state_dict(torch.load('Models/obj/obj_YOLO_1_epoch_198.pth', map_location=device))
 model.eval()
 
 dummy_input = torch.randn(1, 3, 128, 256).to(device)  
 
-onnx_file_path = "Models/onnx/obj_MOB_1_epoch_198.onnx"
+onnx_file_path = "Models/onnx/obj_YOLO_1_epoch_198.onnx"
 torch.onnx.export(
     model,                       # PyTorch model instance
     dummy_input,                 # Input to the model
