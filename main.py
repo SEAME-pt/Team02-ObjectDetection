@@ -97,7 +97,7 @@ def main():
     
     # Initialize model
     # model = MobileNetV2UNet(output_channels=10).to(device)
-    model = YOLOPSeg(num_classes=10).to(device)
+    model = YOLOPSeg(num_classes=8).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
     

@@ -29,9 +29,9 @@ class CarlaDataset(torch.utils.data.Dataset):
             2: 6,
             15: 2,
             16: 2,
-            18: 9,
-            19: 9,
-            13: 9,
+            18: 7,
+            19: 7,
+            13: 7,
 
         }
         
