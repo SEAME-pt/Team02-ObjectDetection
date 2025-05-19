@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 from torchvision import transforms
 from src.unet import UNet, MobileNetV2UNet
+from src.Object import YOLOPSeg
 import time
 
 # Set up device
@@ -20,8 +21,8 @@ else:
     print("Using CPU")
 
 # Load the trained model
-model = MobileNetV2UNet(output_channels=10).to(device)
-model.load_state_dict(torch.load('Models/obj/obj_MOB_1_epoch_172.pth', map_location=device))
+model = YOLOPSeg(num_classes=10).to(device)
+model.load_state_dict(torch.load('Models/obj/obj_YOLO_1_epoch_199.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -146,7 +147,7 @@ def overlay_predictions(image, prediction, show_debug=True):
     return result, detected_objects
 
 # Open video
-cap = cv2.VideoCapture("assets/seame_data_new.mp4")
+cap = cv2.VideoCapture("assets/road3.mp4")
 
 while True:
     ret, frame = cap.read()
