@@ -21,8 +21,8 @@ else:
     print("Using CPU")
 
 # Load the trained model
-model = YOLOPSeg(num_classes=10).to(device)
-model.load_state_dict(torch.load('Models/obj/obj_YOLO_1_epoch_199.pth', map_location=device))
+model = YOLOPSeg(num_classes=8).to(device)
+model.load_state_dict(torch.load('Models/obj/obj_YOLO_2_epoch_79.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -50,15 +50,13 @@ def overlay_predictions(image, prediction, show_debug=True):
     # Create a color map for classes
     color_map = {
         0: [0, 0, 0],         # Background
-        1: [0, 255, 0],    # Road
+        1: [0, 255, 0],       # Road
         2: [255, 0, 0],       # Car
         3: [250, 170, 30],    # Traffic Light
         4: [220, 220, 0],     # Traffic Sign
         5: [220, 20, 60],     # Person
         6: [244, 35, 232],    # Sidewalks
-        7: [0, 0, 70],        # Truck
-        8: [0, 60, 100],      # Bus
-        9: [0, 0, 230],       # Motorcycle
+        7: [0, 0, 70],        # Motorcycle
     }
     
     # Convert prediction logits to class indices
@@ -147,7 +145,7 @@ def overlay_predictions(image, prediction, show_debug=True):
     return result, detected_objects
 
 # Open video
-cap = cv2.VideoCapture("assets/road3.mp4")
+cap = cv2.VideoCapture("assets/seame_data_new.mp4")
 
 while True:
     ret, frame = cap.read()
