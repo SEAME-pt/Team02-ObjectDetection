@@ -21,7 +21,7 @@ def main():
         device = torch.device("cpu")
         print("Using CPU")
 
-    input_size = (256, 128)
+    input_size = (512, 256)
 
     # Your dataset configs
     bdd100k_config = {
@@ -51,7 +51,7 @@ def main():
     # Create the combined dataset with built-in train/val split
     combined_dataset = CombinedLaneDataset(
         bdd100k_config=bdd100k_config, 
-        sea_config=sea_config, 
+        # sea_config=sea_config, 
         carla_config=carla_config, 
         val_split=0.0
     )
@@ -66,17 +66,17 @@ def main():
     weights = np.zeros(train_dataset.train_size)
 
     # Calculate weights for equal contribution (adjust percentages as needed)
-    total_samples = train_bdd100k_size + train_sea_size
+    total_samples = train_bdd100k_size + train_carla_size
     bdd100k_weight = 0.5 / (train_bdd100k_size / total_samples) if train_bdd100k_size > 0 else 0
-    sea_weight = 0.2 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
-    carla_weight = 0.3 / (train_carla_size / total_samples) if train_carla_size > 0 else 0
+    # sea_weight = 0.0 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
+    carla_weight = 0.5 / (train_carla_size / total_samples) if train_carla_size > 0 else 0
 
     # Apply weights to all samples
     for i in range(train_dataset.train_size):
         if i < train_bdd100k_size:
             weights[i] = bdd100k_weight
         else:
-            weights[i] = sea_weight
+            weights[i] = carla_weight
 
     # Create sampler for TRAINING only
     sampler = WeightedRandomSampler(
@@ -85,7 +85,7 @@ def main():
         replacement=True
     )
 
-    print(f"Created weighted sampler: bdd100k={bdd100k_weight:.4f}, SEA={sea_weight:.4f}, Carla={carla_weight:.4}")
+    print(f"Created weighted sampler: bdd100k={bdd100k_weight:.4f}, Carla={carla_weight:.4}")
 
     # Create dataloaders
     train_loader = DataLoader(
@@ -96,7 +96,7 @@ def main():
     )
     
     # Initialize model
-    # model = MobileNetV2UNet(output_channels=10).to(device)
+    # model = MobileNetV2UNet(output_channels=8).to(device)
     model = YOLOPSeg(num_classes=8).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
