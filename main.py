@@ -21,7 +21,7 @@ def main():
         device = torch.device("cpu")
         print("Using CPU")
 
-    input_size = (512, 256)
+    input_size = (256, 128)
 
     # Your dataset configs
     bdd100k_config = {
@@ -31,18 +31,10 @@ def main():
         'height': input_size[1],
         'is_train': True
     }
-
-    carla_config = {
-        'img_dir': '/home/luis_t2/SEAME/Team02-Course/Dataset/Carla/obj_dataset/images',
-        'mask_dir': '/home/luis_t2/SEAME/Team02-Course/Dataset/Carla/obj_dataset/masks',
-        'width': input_size[0],
-        'height': input_size[1],
-        'is_train': True
-    }
     
     sea_config = {
         'img_dir': '/home/luis_t2/SEAME/Team02-Course/Dataset/SEAME/frames',
-        'annotation_file': "/home/luis_t2/SEAME/Team02-Course/Dataset/SEAME/road_annotations.json",
+        'annotation_file': "/home/luis_t2/SEAME/Team02-Course/Dataset/SEAME/obstacle_annotations.json",
         'width': input_size[0],
         'height': input_size[1],
         'is_train': True
@@ -51,8 +43,7 @@ def main():
     # Create the combined dataset with built-in train/val split
     combined_dataset = CombinedLaneDataset(
         bdd100k_config=bdd100k_config, 
-        # sea_config=sea_config, 
-        carla_config=carla_config, 
+        sea_config=sea_config, 
         val_split=0.0
     )
     
@@ -62,21 +53,19 @@ def main():
     # Create weights array for TRAINING data only
     train_bdd100k_size = train_dataset.bdd100k_train_size
     train_sea_size = train_dataset.sea_train_size
-    train_carla_size = train_dataset.carla_train_size
     weights = np.zeros(train_dataset.train_size)
 
     # Calculate weights for equal contribution (adjust percentages as needed)
-    total_samples = train_bdd100k_size + train_carla_size
+    total_samples = train_bdd100k_size + train_sea_size
     bdd100k_weight = 0.5 / (train_bdd100k_size / total_samples) if train_bdd100k_size > 0 else 0
-    # sea_weight = 0.0 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
-    carla_weight = 0.5 / (train_carla_size / total_samples) if train_carla_size > 0 else 0
+    sea_weight = 0.5 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
 
     # Apply weights to all samples
     for i in range(train_dataset.train_size):
         if i < train_bdd100k_size:
             weights[i] = bdd100k_weight
         else:
-            weights[i] = carla_weight
+            weights[i] = sea_weight
 
     # Create sampler for TRAINING only
     sampler = WeightedRandomSampler(
@@ -85,7 +74,7 @@ def main():
         replacement=True
     )
 
-    print(f"Created weighted sampler: bdd100k={bdd100k_weight:.4f}, Carla={carla_weight:.4}")
+    print(f"Created weighted sampler: bdd100k={bdd100k_weight:.4f}, SEAME={sea_weight:.4}")
 
     # Create dataloaders
     train_loader = DataLoader(
