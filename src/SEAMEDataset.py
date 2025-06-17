@@ -26,13 +26,17 @@ class SEAMEDataset(torch.utils.data.Dataset):
         self.class_map = {
             "background": 0,
             "drivable_area": 1,
-            "car": 2
+            "car": 2,
+            "lights": 3,
+            "sign": 4
         }
         
         self.class_colors = {
             0: [0, 0, 0],         # Background - Black
             1: [0, 255, 0],       # Road - Green
-            2: [255, 0, 0]        # Car - Blue
+            2: [255, 0, 0],       # Car - Blue
+            3: [255, 255, 0],     # Lights - 
+            4: [255, 0, 255]      # Sign -
         }
         
         # Load annotations
