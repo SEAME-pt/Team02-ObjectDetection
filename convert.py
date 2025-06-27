@@ -21,12 +21,12 @@ else:
 
 # Load the trained model
 model = YOLOPSeg(num_classes=8).to(device)
-model.load_state_dict(torch.load('Models/obj/obj_Yolo_local1_epoch_82.pth', map_location=device))
+model.load_state_dict(torch.load('Models/obj/obj_Yolo_local1_epoch_200.pth', map_location=device))
 model.eval()
 
 dummy_input = torch.randn(1, 3, 128, 256).to(device)  
 
-onnx_file_path = "Models/onnx/obj_Yolo_local1_epoch_82.onnx"
+onnx_file_path = "Models/onnx/obj_Yolo_local1_epoch_200.onnx"
 torch.onnx.export(
     model,                       # PyTorch model instance
     dummy_input,                 # Input to the model

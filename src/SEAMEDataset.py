@@ -34,9 +34,9 @@ class SEAMEDataset(torch.utils.data.Dataset):
         self.class_colors = {
             0: [0, 0, 0],         # Background - Black
             1: [0, 255, 0],       # Road - Green
-            2: [255, 0, 0],       # Car - Blue
-            3: [255, 255, 0],     # Lights - 
-            4: [255, 0, 255]      # Sign -
+            2: [255, 0, 0],       # Car - Red
+            3: [255, 255, 0],     # Lights - Yellow
+            4: [255, 0, 255]      # Sign - Purple
         }
         
         # Load annotations
@@ -165,14 +165,14 @@ class SEAMEDataset(torch.utils.data.Dataset):
     
 def main():
     # Hardcoded paths - change these to match your setup
-    img_dir = 'frames'
-    annotation_file = 'road_annotations.json'
+    img_dir = '/home/luis_t2/SEAME/Team02-Course/Dataset/SEAME/frames'
+    annotation_file = '/home/luis_t2/SEAME/Team02-Course/Dataset/SEAME/obstacle_annotations.json'
     
     # Load the dataset
     dataset = SEAMEDataset(
         img_dir=img_dir,
         annotation_file=annotation_file,
-        width=512,  # Using larger size for visualization
+        width=256,  # Using larger size for visualization
         height=256,
         is_train=False  # No augmentations for visualization
     )
