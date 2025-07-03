@@ -22,12 +22,12 @@ else:
 # Load the trained model
 # model = YOLOPSeg(num_classes=8).to(device)
 model = MobileNetV2UNet(output_channels=8).to(device)
-model.load_state_dict(torch.load('Models/obj/obj_Mob_local_pretrained_BDD100k1_epoch_100.pth', map_location=device))
+model.load_state_dict(torch.load('Models/obj/obj_Mob_local_pretrained_BDD100k2_epoch_100.pth', map_location=device))
 model.eval()
 
-dummy_input = torch.randn(1, 3, 256, 256).to(device)  
+dummy_input = torch.randn(1, 3, 128, 256).to(device)  
 
-onnx_file_path = "Models/onnx/obj_Mob_local_pretrained_BDD100k1_epoch_100.onnx"
+onnx_file_path = "Models/onnx/obj_Mob_local_pretrained_BDD100k2_epoch_100.onnx"
 torch.onnx.export(
     model,                       # PyTorch model instance
     dummy_input,                 # Input to the model
