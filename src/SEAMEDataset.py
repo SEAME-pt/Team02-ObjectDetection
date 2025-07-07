@@ -49,9 +49,23 @@ class SEAMEDataset(torch.utils.data.Dataset):
         
         print(f"Loaded {len(self.annotations)} annotations")
         
-        # Filter to only include annotations with available images
-        self.annotations = [ann for ann in self.annotations if 
-                           os.path.exists(os.path.join(img_dir, ann['raw_file']))]
+        missing_images = []
+        filtered_annotations = []
+        for ann in self.annotations:
+            img_path = os.path.join(img_dir, ann['raw_file'])
+            if os.path.exists(img_path):
+                filtered_annotations.append(ann)
+            else:
+                missing_images.append(ann['raw_file'])
+
+        if missing_images:
+            print("Images referenced in annotation file but NOT found in frames directory:")
+            for fname in missing_images:
+                print("  -", fname)
+        else:
+            print("All referenced images found in frames directory.")
+
+        self.annotations = filtered_annotations
         print(f"Found {len(self.annotations)} annotations with matching images")
         
         # Set up transformations

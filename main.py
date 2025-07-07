@@ -27,10 +27,10 @@ def main():
     input_size = (256, 128)
     batch_size = 8
 
-    # learning_rate = 1e-5
-    # model_name = 'Models/obj/obj_Mob_local_pretrained_BDD100k2_epoch_'
-    learning_rate = 1.5e-4
-    model_name = 'Models/obj/obj_Mob_local_BDD100k2_epoch_'
+    learning_rate = 1e-5
+    model_name = 'Models/obj/obj_Mob_local_pretrained_BDD100k2_epoch_'
+    # learning_rate = 1.5e-4
+    # model_name = 'Models/obj/obj_Mob_local_BDD100k2_epoch_'
 
     # Your dataset configs
     bdd100k_config = {
@@ -57,21 +57,21 @@ def main():
     #     is_train=carla_config.get('is_train', True)
     # )
 
-    # train_dataset = SEAMEDataset(
-    #     img_dir=sea_config['img_dir'],
-    #     annotation_file=sea_config['annotation_file'],
-    #     width=sea_config.get('width', 512),
-    #     height=sea_config.get('height', 256),
-    #     is_train=sea_config.get('is_train', True)
-    # )
-
-    train_dataset = BDD100KDataset(
-        img_dir=bdd100k_config['img_dir'],
-        mask_dir=bdd100k_config['mask_dir'],
-        width=bdd100k_config.get('width', 512),
-        height=bdd100k_config.get('height', 256),
-        is_train=bdd100k_config.get('is_train', True)
+    train_dataset = SEAMEDataset(
+        img_dir=sea_config['img_dir'],
+        annotation_file=sea_config['annotation_file'],
+        width=sea_config.get('width', 512),
+        height=sea_config.get('height', 256),
+        is_train=sea_config.get('is_train', True)
     )
+
+    # train_dataset = BDD100KDataset(
+    #     img_dir=bdd100k_config['img_dir'],
+    #     mask_dir=bdd100k_config['mask_dir'],
+    #     width=bdd100k_config.get('width', 512),
+    #     height=bdd100k_config.get('height', 256),
+    #     is_train=bdd100k_config.get('is_train', True)
+    # )
     
     # Create dataloaders
     train_loader = DataLoader(
@@ -84,10 +84,10 @@ def main():
     # Initialize model
     model = MobileNetV2UNet(output_channels=8).to(device)
     # model = YOLOPSeg(num_classes=8).to(device)
-    # model.load_state_dict(torch.load('Models/obj/obj_Mob_local_BDD100k1_epoch_70.pth'))
+    model.load_state_dict(torch.load('Models/obj/obj_Mob_local_BDD100k2_epoch_80.pth'))
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    # optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
+    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     
     # Train model
     train_model(model, model_name, train_loader, criterion, optimizer, device, epochs=100)
