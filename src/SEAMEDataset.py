@@ -187,7 +187,7 @@ def main():
         img_dir=img_dir,
         annotation_file=annotation_file,
         width=256,  # Using larger size for visualization
-        height=256,
+        height=128,
         is_train=False  # No augmentations for visualization
     )
     
