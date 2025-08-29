@@ -24,13 +24,13 @@ def main():
         device = torch.device("cpu")
         print("Using CPU")
 
-    input_size = (256, 128)
+    input_size = (512, 256)
     batch_size = 8
 
     learning_rate = 1e-5
-    model_name = 'Models/obj/obj_Mob_local_pretrained_BDD100k2_epoch_'
+    model_name = 'Models/obj/obj_Mob_carla_pretrained_BDD100k1_epoch_'
     # learning_rate = 1.5e-4
-    # model_name = 'Models/obj/obj_Mob_local_BDD100k2_epoch_'
+    # model_name = 'Models/obj/obj_Mob_carla_BDD100k1_epoch_'
 
     # Your dataset configs
     bdd100k_config = {
@@ -49,21 +49,29 @@ def main():
         'is_train': True
     }
 
-    # train_dataset = CarlaDataset(
-    #     img_dir=carla_config['img_dir'],
-    #     mask_dir=carla_config['mask_dir'],
-    #     width=carla_config.get('width', 512),
-    #     height=carla_config.get('height', 256),
-    #     is_train=carla_config.get('is_train', True)
-    # )
+    carla_config = {
+        'img_dir': '/home/luis_t2/SEAME/Team02-Course/Dataset/Carla/obj_dataset/images',
+        'mask_dir': "/home/luis_t2/SEAME/Team02-Course/Dataset/Carla/obj_dataset/masks",
+        'width': input_size[0],
+        'height': input_size[1],
+        'is_train': True
+    }
 
-    train_dataset = SEAMEDataset(
-        img_dir=sea_config['img_dir'],
-        annotation_file=sea_config['annotation_file'],
-        width=sea_config.get('width', 512),
-        height=sea_config.get('height', 256),
-        is_train=sea_config.get('is_train', True)
+    train_dataset = CarlaDataset(
+        img_dir=carla_config['img_dir'],
+        mask_dir=carla_config['mask_dir'],
+        width=carla_config.get('width', 512),
+        height=carla_config.get('height', 256),
+        is_train=carla_config.get('is_train', True)
     )
+
+    # train_dataset = SEAMEDataset(
+    #     img_dir=sea_config['img_dir'],
+    #     annotation_file=sea_config['annotation_file'],
+    #     width=sea_config.get('width', 512),
+    #     height=sea_config.get('height', 256),
+    #     is_train=sea_config.get('is_train', True)
+    # )
 
     # train_dataset = BDD100KDataset(
     #     img_dir=bdd100k_config['img_dir'],
@@ -83,14 +91,13 @@ def main():
     
     # Initialize model
     model = MobileNetV2UNet(output_channels=8).to(device)
-    # model = YOLOPSeg(num_classes=8).to(device)
-    model.load_state_dict(torch.load('Models/obj/obj_Mob_local_BDD100k2_epoch_80.pth'))
+    model.load_state_dict(torch.load('Models/obj/obj_Mob_local_BDD100k1_epoch_20.pth'))
     criterion = nn.CrossEntropyLoss()
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     
     # Train model
-    train_model(model, model_name, train_loader, criterion, optimizer, device, epochs=100)
+    train_model(model, model_name, train_loader, criterion, optimizer, device, epochs=50)
 
 if __name__ == '__main__':
     main()
